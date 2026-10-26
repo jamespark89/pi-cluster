@@ -1,0 +1,81 @@
+# One replica: sign-in and spam limits are kept in the app's memory.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sunday-fc
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sunday-fc
+  template:
+    metadata:
+      labels:
+        app: sunday-fc
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull # only needed while the image is private
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+      initContainers:
+        # Applies any new database migrations before the app starts.
+        - name: migrate
+          image: ghcr.io/jamespark89/sunday-fc-app:latest
+          command: ["node", "/opt/prisma/node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
+          envFrom:
+            - secretRef:
+                name: sunday-fc-env
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: sunday-fc
+          image: ghcr.io/jamespark89/sunday-fc-app:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: sunday-fc-env
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: next-cache
+              mountPath: /app/.next/cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}

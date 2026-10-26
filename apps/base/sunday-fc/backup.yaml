@@ -1,0 +1,57 @@
+# Nightly database dump at 3am (Sydney), keeping the last 14 days.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sunday-fc-backups
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sunday-fc-db-backup
+spec:
+  schedule: "0 3 * * *"
+  timeZone: Australia/Sydney
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 70
+            runAsGroup: 70
+            fsGroup: 70
+          containers:
+            - name: backup
+              image: postgres:17-alpine
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: sunday-fc-db
+                      key: POSTGRES_PASSWORD
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  file=/backups/sundayfc-$(date +%Y%m%d-%H%M).sql.gz
+                  pg_dump -h sunday-fc-db -U postgres sundayfc | gzip > "$file"
+                  echo "Wrote $file ($(du -h "$file" | cut -f1))"
+                  find /backups -name 'sundayfc-*.sql.gz' -mtime +14 -delete
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: sunday-fc-backups

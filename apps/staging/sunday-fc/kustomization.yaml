@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: sunday-fc
+resources:
+  - ../../base/sunday-fc/
+  - cloudflare.yaml
+# To release a new version, set newTag to the image built from that commit
+# (ghcr.io/jamespark89/sunday-fc-app:sha-<first 7 of the commit>).
+images:
+  - name: ghcr.io/jamespark89/sunday-fc-app
+    newTag: sha-REPLACE_ME

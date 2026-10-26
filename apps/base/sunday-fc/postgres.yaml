@@ -1,0 +1,66 @@
+# The app's database. Data lives on a local-path volume on the node; see
+# backup.yaml for the nightly dumps.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sunday-fc-db
+spec:
+  clusterIP: None
+  ports:
+    - port: 5432
+  selector:
+    app: sunday-fc-db
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sunday-fc-db
+spec:
+  serviceName: sunday-fc-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sunday-fc-db
+  template:
+    metadata:
+      labels:
+        app: sunday-fc-db
+    spec:
+      securityContext:
+        fsGroup: 70 # postgres in the alpine image
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: sundayfc
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sunday-fc-db
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "sundayfc"]
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
