@@ -15,9 +15,23 @@ spec:
       labels:
         app: cloudflared
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # The image's "nonroot" user; given as a number so Kubernetes can check it.
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: cloudflared
-        image: cloudflare/cloudflared:latest
+        # Pinned, so an update is a deliberate change here rather than a surprise.
+        image: cloudflare/cloudflared:2026.10.4
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         args:
         - tunnel
         - --config

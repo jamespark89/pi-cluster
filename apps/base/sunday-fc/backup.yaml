@@ -24,15 +24,26 @@ spec:
     spec:
       backoffLimit: 2
       template:
+        metadata:
+          labels:
+            app: sunday-fc-db-backup
         spec:
           restartPolicy: OnFailure
+          automountServiceAccountToken: false
           securityContext:
             runAsUser: 70
             runAsGroup: 70
+            runAsNonRoot: true
             fsGroup: 70
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: backup
               image: postgres:17-alpine
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
               env:
                 - name: PGPASSWORD
                   valueFrom:

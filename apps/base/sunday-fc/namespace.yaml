@@ -2,3 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: sunday-fc
+  labels:
+    # Kubernetes refuses any pod here that runs as root, can gain privileges
+    # or keeps extra Linux capabilities.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest

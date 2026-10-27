@@ -1,0 +1,48 @@
+# Pods in this namespace only accept the connections they need:
+#   Cloudflare tunnel -> app -> database <- nightly backup
+# Anything else, such as pods in other namespaces, can't reach them.
+# Outbound traffic isn't limited (the app calls Google, Gmail and the weather).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app-from-tunnel
+spec:
+  podSelector:
+    matchLabels:
+      app: sunday-fc
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: cloudflared
+      ports:
+        - port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-from-app-and-backup
+spec:
+  podSelector:
+    matchLabels:
+      app: sunday-fc-db
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: sunday-fc
+        - podSelector:
+            matchLabels:
+              app: sunday-fc-db-backup
+      ports:
+        - port: 5432
