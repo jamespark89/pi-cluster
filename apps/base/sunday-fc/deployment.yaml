@@ -1,4 +1,9 @@
 # One replica: sign-in and spam limits are kept in the app's memory.
+# Releases roll: the new pod starts (migrations, then the app) while the old one
+# keeps serving, and traffic moves once /api/health answers, so there's no
+# downtime. For those few seconds the two pods keep separate rate-limit counts,
+# which is harmless. Migrations run while the old version is still up, so they
+# must stay backward-compatible (add columns and values; drop them a release later).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,7 +11,10 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: sunday-fc
@@ -61,6 +69,11 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 30
             failureThreshold: 3
+          lifecycle:
+            # Leave time for the Service to stop sending traffic before the app shuts down.
+            preStop:
+              sleep:
+                seconds: 5
           resources:
             requests:
               cpu: 100m
