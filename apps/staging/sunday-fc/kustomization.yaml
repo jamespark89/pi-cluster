@@ -8,4 +8,4 @@ resources:
 # (ghcr.io/jamespark89/sunday-fc-app:sha-<first 7 of the commit>).
 images:
   - name: ghcr.io/jamespark89/sunday-fc-app
-    newTag: sha-ae5f308
+    newTag: sha-1e71093
