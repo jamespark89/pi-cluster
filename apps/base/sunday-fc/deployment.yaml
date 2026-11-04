@@ -90,8 +90,13 @@ spec:
               mountPath: /tmp
             - name: next-cache
               mountPath: /app/.next/cache
+            # Next.js copies prerendered pages here on first use; the rest stays read-only.
+            - name: route-cache
+              mountPath: /app/.next/server/route-cache
       volumes:
         - name: tmp
           emptyDir: {}
         - name: next-cache
+          emptyDir: {}
+        - name: route-cache
           emptyDir: {}
