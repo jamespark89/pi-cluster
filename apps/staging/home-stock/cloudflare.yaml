@@ -1,0 +1,90 @@
+# Cloudflare Tunnel for homestock.jamespark.dev, like the one for sunday-fc.
+# Needs the secret "tunnel-credentials" with credentials.json for the
+# "homestock" tunnel (see README.md in this folder). Cloudflare Access in front
+# of the hostname decides who can sign in.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+spec:
+  selector:
+    matchLabels:
+      app: cloudflared
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # The image's "nonroot" user; given as a number so Kubernetes can check it.
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: cloudflared
+        # Pinned, so an update is a deliberate change here rather than a surprise.
+        image: cloudflare/cloudflared:2026.10.4
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        args:
+        - tunnel
+        - --config
+        - /etc/cloudflared/config/config.yaml
+        - run
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: 2000
+          failureThreshold: 1
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: config
+          mountPath: /etc/cloudflared/config
+          readOnly: true
+        - name: creds
+          mountPath: /etc/cloudflared/creds
+          readOnly: true
+      volumes:
+      - name: creds
+        secret:
+          secretName: tunnel-credentials
+      - name: config
+        configMap:
+          name: cloudflared
+          items:
+          - key: config.yaml
+            path: config.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared
+data:
+  config.yaml: |
+    tunnel: homestock
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    metrics: 0.0.0.0:2000
+    no-autoupdate: true
+
+    ingress:
+    - hostname: homestock.jamespark.dev
+      service: http://home-stock:3000
+      # Only pass on requests signed by Cloudflare Access for this app, so the
+      # site stays closed even if the Access application is removed. Update
+      # teamName if the Zero Trust team is renamed, and audTag if the app is
+      # re-created (Access controls > Applications > Home Stock > Overview).
+      originRequest:
+        access:
+          required: true
+          teamName: old-water-d7aa
+          audTag:
+            - 11046d2e7d3e73399b928ab0966f3d46ede3cf5c0f2bb543109915146d2c7e11
+    - service: http_status:404

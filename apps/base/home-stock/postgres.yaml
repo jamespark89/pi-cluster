@@ -1,0 +1,78 @@
+# The app's database. Data lives on a local-path volume on the node; see
+# backup.yaml for the nightly dumps.
+apiVersion: v1
+kind: Service
+metadata:
+  name: home-stock-db
+spec:
+  clusterIP: None
+  ports:
+    - port: 5432
+  selector:
+    app: home-stock-db
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: home-stock-db
+spec:
+  serviceName: home-stock-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: home-stock-db
+  template:
+    metadata:
+      labels:
+        app: home-stock-db
+    spec:
+      automountServiceAccountToken: false
+      # Runs as the postgres user from the start, rather than starting as root
+      # and switching, so a shell in this pod isn't root either.
+      securityContext:
+        runAsUser: 70 # postgres in the alpine image
+        runAsGroup: 70
+        runAsNonRoot: true
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: homestock
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: home-stock-db
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "homestock"]
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

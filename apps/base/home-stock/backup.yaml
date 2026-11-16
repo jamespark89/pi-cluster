@@ -1,0 +1,76 @@
+# Nightly database dump at 3am (Sydney), keeping the last 14 days.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: home-stock-backups
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: home-stock-db-backup
+spec:
+  schedule: "0 3 * * *"
+  timeZone: Australia/Sydney
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: home-stock-db-backup
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 70
+            runAsGroup: 70
+            runAsNonRoot: true
+            fsGroup: 70
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: postgres:17-alpine
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: home-stock-db
+                      key: POSTGRES_PASSWORD
+              command:
+                - sh
+                - -c
+                - |
+                  set -eo pipefail
+                  # Network rules reach a new pod a few seconds after it starts,
+                  # so wait until the database answers.
+                  for i in $(seq 1 30); do
+                    pg_isready -q -h home-stock-db -U postgres -d homestock && break
+                    sleep 2
+                  done
+                  file=/backups/homestock-$(date +%Y%m%d-%H%M).sql.gz
+                  # pipefail: if pg_dump fails, the job fails too, and no
+                  # half-written file is left behind.
+                  pg_dump -h home-stock-db -U postgres homestock | gzip > "$file" || { rm -f "$file"; exit 1; }
+                  echo "Wrote $file ($(du -h "$file" | cut -f1))"
+                  find /backups -name 'homestock-*.sql.gz' -mtime +14 -delete
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: home-stock-backups

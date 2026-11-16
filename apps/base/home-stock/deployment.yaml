@@ -1,0 +1,102 @@
+# Assumes the app is built like sunday-fc (Next.js + Prisma, port 3000,
+# /api/health); adjust the image paths, probes and volumes if it isn't.
+# Releases roll: the new pod starts (migrations, then the app) while the old one
+# keeps serving, and traffic moves once /api/health answers, so there's no
+# downtime. Migrations run while the old version is still up, so they must stay
+# backward-compatible (add columns and values; drop them a release later).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-stock
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: home-stock
+  template:
+    metadata:
+      labels:
+        app: home-stock
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull # only needed while the image is private
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Applies any new database migrations before the app starts.
+        - name: migrate
+          image: ghcr.io/jamespark89/home-stock:latest
+          command: ["node", "/opt/prisma/node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
+          envFrom:
+            - secretRef:
+                name: home-stock-env
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: home-stock
+          image: ghcr.io/jamespark89/home-stock:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: home-stock-env
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+          lifecycle:
+            # Leave time for the Service to stop sending traffic before the app shuts down.
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: next-cache
+              mountPath: /app/.next/cache
+            # Next.js copies prerendered pages here on first use; the rest stays read-only.
+            - name: route-cache
+              mountPath: /app/.next/server/route-cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}
+        - name: route-cache
+          emptyDir: {}
