@@ -8,4 +8,4 @@ resources:
 # (ghcr.io/jamespark89/home-stock:sha-<first 7 of the commit>).
 images:
   - name: ghcr.io/jamespark89/home-stock
-    newTag: sha-7db987e
+    newTag: sha-3da4785
