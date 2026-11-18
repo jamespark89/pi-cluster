@@ -5,6 +5,12 @@
 #   bash set-serpapi-key.sh
 set -euo pipefail
 
+# Check the cluster answers before asking for the key, not after.
+if ! kubectl -n home-stock get secret home-stock-env >/dev/null 2>&1; then
+  echo "Can't reach the cluster with kubectl (try: kubectl get nodes). Nothing changed." >&2
+  exit 1
+fi
+
 read -r -s -p "SerpApi API key (serpapi.com > Dashboard > Your Private API Key): " key
 echo
 key="${key//[[:space:]]/}"
