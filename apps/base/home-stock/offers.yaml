@@ -1,0 +1,58 @@
+# Daily price search at 6am (Sydney): asks the app to refresh the best prices of
+# items that have a search phrase, using SerpApi's Google Shopping search. Each
+# item refreshed uses one search (the app does at most OFFERS_PER_RUN, default 8).
+# Needs OFFERS_REFRESH_TOKEN in home-stock-env (see set-serpapi-key.sh).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: home-stock-offers
+spec:
+  schedule: "0 6 * * *"
+  timeZone: Australia/Sydney
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Don't retry: a retry would spend the searches again.
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: home-stock-offers
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 100 # curl_user in the image
+            runAsGroup: 101
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: refresh
+              image: curlimages/curl:8.23.0
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: home-stock-env
+                      key: OFFERS_REFRESH_TOKEN
+                      # Until set-serpapi-key.sh has run, the job just fails (401).
+                      optional: true
+              command:
+                - sh
+                - -c
+                - |
+                  # Network rules reach a new pod a few seconds after it starts.
+                  for i in $(seq 1 30); do
+                    curl -fsS -o /dev/null http://home-stock:3000/api/health && break
+                    sleep 2
+                  done
+                  curl -fsS --max-time 600 -X POST -H "Authorization: Bearer $TOKEN" \
+                    http://home-stock:3000/api/offers/refresh

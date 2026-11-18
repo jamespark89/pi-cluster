@@ -24,6 +24,10 @@ spec:
         - podSelector:
             matchLabels:
               app: cloudflared
+        # The daily price search (offers.yaml).
+        - podSelector:
+            matchLabels:
+              app: home-stock-offers
       ports:
         - port: 3000
 ---

@@ -44,6 +44,15 @@ addresses. Do this before the first sync, so the site is never open.
 To change a setting: edit prod.env, re-create `home-stock-env` (delete it, then
 create it again), then `kubectl -n home-stock rollout restart deployment/home-stock`.
 
+## Best prices (Google Shopping via SerpApi)
+
+Items with a "Search for best price" phrase show the cheapest offers from
+trusted Australian shops. Set the SerpApi key once (it also makes the token the
+daily job uses): `bash set-serpapi-key.sh`. The `home-stock-offers` CronJob
+refreshes them at 6am, at most 8 items a run (`OFFERS_PER_RUN`), the free plan
+has 250 searches a month. Run it now:
+`kubectl -n home-stock create job --from=cronjob/home-stock-offers offers-now`.
+
 ## Price tracking (changedetection.io)
 
 `changedetection` checks shops' product pages for prices, at
