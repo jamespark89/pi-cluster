@@ -7,5 +7,4 @@ resources:
   - service.yaml
   - backup.yaml
   - network-policy.yaml
-  - changedetection.yaml
   - offers.yaml

@@ -87,14 +87,4 @@ data:
           teamName: old-water-d7aa
           audTag:
             - 11046d2e7d3e73399b928ab0966f3d46ede3cf5c0f2bb543109915146d2c7e11
-    # changedetection.io, covered by the same Access application (add this
-    # hostname to Home Stock's destinations); until then this refuses everyone.
-    - hostname: prices.jamespark.dev
-      service: http://changedetection:5000
-      originRequest:
-        access:
-          required: true
-          teamName: old-water-d7aa
-          audTag:
-            - 11046d2e7d3e73399b928ab0966f3d46ede3cf5c0f2bb543109915146d2c7e11
     - service: http_status:404

@@ -54,17 +54,6 @@ the free plan has 250 searches a month. Google Shopping rarely lists Woolworths
 or Coles, so supermarket prices come from their own apps instead. Run it now:
 `kubectl -n home-stock create job --from=cronjob/home-stock-offers offers-now`.
 
-## Price tracking (changedetection.io)
-
-`changedetection` checks shops' product pages for prices, at
-https://prices.jamespark.dev (same tunnel; add that hostname to the Home Stock
-Access application's destinations, or the tunnel refuses every request).
-`sockpuppetbrowser` is the headless Chrome it uses for pages that need
-JavaScript. Watches live on the `changedetection-data` volume, which the nightly
-backup doesn't cover; changedetection's own Backups page can download them.
-The tunnel only reads its config at start, so after changing `cloudflare.yaml`:
-`kubectl -n home-stock rollout restart deployment/cloudflared`.
-
 ## Releasing
 
 Pushing to the app's `main` builds `ghcr.io/jamespark89/home-stock:sha-<commit>`
