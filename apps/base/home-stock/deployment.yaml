@@ -54,6 +54,10 @@ spec:
           image: ghcr.io/jamespark89/home-stock:latest
           ports:
             - containerPort: 3000
+          env:
+            # Prices for buy links; the API key is CHANGEDETECTION_API_KEY in home-stock-env.
+            - name: CHANGEDETECTION_URL
+              value: http://changedetection:5000
           envFrom:
             - secretRef:
                 name: home-stock-env
