@@ -48,9 +48,10 @@ create it again), then `kubectl -n home-stock rollout restart deployment/home-st
 
 Items with a "Search for best price" phrase show the cheapest offers from
 trusted Australian shops. Set the SerpApi key once (it also makes the token the
-daily job uses): `bash set-serpapi-key.sh`. The `home-stock-offers` CronJob
-refreshes them at 6am, at most 8 items a run (`OFFERS_PER_RUN`), the free plan
-has 250 searches a month. Run it now:
+job uses): `bash set-serpapi-key.sh`. The `home-stock-offers` CronJob refreshes
+them on Wednesdays and Sundays at 6am, at most 8 items a run (`OFFERS_PER_RUN`);
+the free plan has 250 searches a month. Google Shopping rarely lists Woolworths
+or Coles, so supermarket prices come from their own apps instead. Run it now:
 `kubectl -n home-stock create job --from=cronjob/home-stock-offers offers-now`.
 
 ## Price tracking (changedetection.io)

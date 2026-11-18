@@ -1,4 +1,4 @@
-# Daily price search at 6am (Sydney): asks the app to refresh the best prices of
+# Price search on Wednesdays and Sundays at 6am (Sydney): asks the app to refresh the best prices of
 # items that have a search phrase, using SerpApi's Google Shopping search. Each
 # item refreshed uses one search (the app does at most OFFERS_PER_RUN, default 8).
 # Needs OFFERS_REFRESH_TOKEN in home-stock-env (see set-serpapi-key.sh).
@@ -7,7 +7,8 @@ kind: CronJob
 metadata:
   name: home-stock-offers
 spec:
-  schedule: "0 6 * * *"
+  # Sunday is 0, Wednesday 3.
+  schedule: "0 6 * * 0,3"
   timeZone: Australia/Sydney
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
