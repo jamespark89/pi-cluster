@@ -46,3 +46,41 @@ spec:
               app: home-stock-db-backup
       ports:
         - port: 5432
+---
+# changedetection's page: through the tunnel, and from the app (for prices).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: changedetection-from-tunnel-and-app
+spec:
+  podSelector:
+    matchLabels:
+      app: changedetection
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: cloudflared
+        - podSelector:
+            matchLabels:
+              app: home-stock
+      ports:
+        - port: 5000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: browser-from-changedetection
+spec:
+  podSelector:
+    matchLabels:
+      app: sockpuppetbrowser
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: changedetection
+      ports:
+        - port: 3000
