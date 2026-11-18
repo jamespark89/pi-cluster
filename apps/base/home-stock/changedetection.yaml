@@ -123,6 +123,9 @@ spec:
     spec:
       automountServiceAccountToken: false
       securityContext:
+        # The image's "chrome" user, given as a number so Kubernetes can check it.
+        runAsUser: 1000
+        runAsGroup: 1000
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
